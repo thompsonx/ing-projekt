@@ -31,12 +31,16 @@ namespace tsync
             double ReadDouble();
             const char * ReadString();
 
+            void ReadTransitionTraceFunctionData();
             void PESend();
             void ProcessTokensAdd();
-            void ProcessEvent();
+            void ProcessEnd();
+            void PEQuit();
             void PETransitionFired();
+            void PETransitionFinished();
             void PESpawn();
-
+            void PEReceive();
+            void ProcessEvent();
     };
 
 }

@@ -6,6 +6,8 @@
 #include <sstream>
 #include "tracelog.h"
 
+//TODO: necist a jen preskakovat neoupizavana data, nelze u stringu - neznam delku, jak ukladat prectena data?
+
 using namespace tsync;
 
 Tracelog::Tracelog(char * filepath, int process_id, int min_evnt_dif, int min_msg_dly)
@@ -113,13 +115,13 @@ void Tracelog::ProcessEvent()
     switch (t)
     {
         case 'T':
-            //TODO: transition fired
+            this->PETransitionFired();
             break;
         case 'F':
-            //TODO: tran fin
+            this->PETransitionFinished();
             break;
         case 'R':
-            //TODO: evnt rcv
+            this->PEReceive();
             break;
         case 'S':
             this->PESpawn();
@@ -188,13 +190,96 @@ void Tracelog::ProcessTokensAdd()
     }
 }
 
+void Tracelog::ReadTransitionTraceFunctionData()
+{
+    while (!this->IsEndReached())
+    {
+        char t = *this->pointer;
+        this->pointer++;
+        if (t == 'r')
+        {
+            this->ReadUint64();
+            this->ReadInt32();
+        }
+        else if (t == 'i')
+        {
+            this->ReadInt32();
+        }
+        else if (t == 'd')
+        {
+            this->ReadDouble();
+        }
+        else if (t == 's')
+        {
+            this->ReadString();
+        }
+        else
+        {
+            this->pointer--;
+            break;
+        }
+    }
+}
+
+void Tracelog::PEQuit()
+{
+    char t = *this->pointer;
+    if (t != 'Q')
+    {
+        return;
+    }
+    //TODO: store data
+    this->pointer++;
+    uint64_t time = this->ReadUint64();
+    //TODO: sync
+}
+
+void Tracelog::ProcessEnd()
+{
+    char t = *this->pointer;
+    if (t != 'X')
+    {
+        return;
+    }
+    //TODO: store data
+    this->pointer++;
+    uint64_t time = this->ReadUint64();
+    //TODO: sync
+}
+
 void Tracelog::PETransitionFired()
 {
+    //TODO: store data and sync
+    uint64_t time = this->ReadUint64();
+    int32_t transtition_id = this->ReadInt32();
+    this->ReadTransitionTraceFunctionData();
+    this->PEQuit();
+    this->ProcessTokensAdd();
+    this->ProcessEnd();
+}
 
+void Tracelog::PETransitionFinished()
+{
+    //TODO: store data and sync
+    uint64_t time = this->ReadUint64();
+    this->PEQuit();
+    this->ProcessTokensAdd();
+    this->ProcessEnd();
+}
+
+void Tracelog::PEReceive()
+{
+    //TODO: store data and sync
+    uint64_t time = this->ReadUint64();
+    this->ReadInt32();
+    this->ProcessTokensAdd();
+    this->ProcessEnd();
 }
 
 void Tracelog::PESpawn()
 {
     uint64_t time = this->ReadUint64();
     int32_t netid = this->ReadInt32();
+    //TODO: sync
+    this->ProcessTokensAdd();
 }
