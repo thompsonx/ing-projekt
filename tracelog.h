@@ -12,6 +12,7 @@ namespace tsync
             void Load();
             bool IsEndReached();
             int GetPointerPos();
+            void Sync();
 
             void SetTimeOffset(uint64_t);
             uint64_t GetTimeOffset();
@@ -40,6 +41,7 @@ namespace tsync
             void PETransitionFinished();
             void PESpawn();
             void PEReceive();
+            void PEIdle();
             void ProcessEvent();
     };
 

@@ -53,7 +53,18 @@ void Tracelog::Load()
     }
     this->header_end = this->pointer - &this->data[0];
     this->pointer++;
-    this->ProcessEvent();
+}
+
+void Tracelog::Sync()
+{
+    for (int i = 0; i < 5; i++)
+    {
+        this->ProcessEvent();
+    }
+//    while (!this->IsEndReached())
+//    {
+//        this->ProcessEvent();
+//    }
 }
 
 void Tracelog::SetTimeOffset(uint64_t offset)
@@ -127,10 +138,10 @@ void Tracelog::ProcessEvent()
             this->PESpawn();
             break;
         case 'I':
-            //TODO: evnt idle
+            this->PEIdle();
             break;
         case 'Q':
-            //TODO evnt quit
+            this->PEQuit();
             break;
         default:
             std::ostringstream exptn_text;
@@ -283,3 +294,10 @@ void Tracelog::PESpawn()
     //TODO: sync
     this->ProcessTokensAdd();
 }
+
+void Tracelog::PEIdle()
+{
+    uint64_t time = this->ReadUint64();
+    //TODO: save and sync
+}
+
