@@ -106,7 +106,7 @@ double Tracelog::ReadDouble()
     return value;
 }
 
-const char * Tracelog::ReadString()
+std::string Tracelog::ReadString()
 {
     std::string value;
     while ((*this->pointer) != 0)
@@ -115,7 +115,7 @@ const char * Tracelog::ReadString()
         this->pointer++;
     }
     this->pointer++;
-    return value.c_str();
+    return value;
 }
 
 void Tracelog::ProcessEvent()

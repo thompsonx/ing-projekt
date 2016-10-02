@@ -1,5 +1,6 @@
 #include <string>
 #include <stdint.h>
+#include "event.h"
 
 namespace tsync
 {
@@ -30,7 +31,7 @@ namespace tsync
             uint64_t ReadUint64();
             int32_t ReadInt32();
             double ReadDouble();
-            const char * ReadString();
+            std::string ReadString();
 
             void ReadTransitionTraceFunctionData();
             void PESend();
