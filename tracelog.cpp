@@ -262,7 +262,7 @@ void Tracelog::PETransitionFired()
 {
     //TODO: store data and sync
     uint64_t time = this->ReadUint64();
-    int32_t transtition_id = this->ReadInt32();
+    int32_t transition_id = this->ReadInt32();
     this->ReadTransitionTraceFunctionData();
     this->PEQuit();
     this->ProcessTokensAdd();

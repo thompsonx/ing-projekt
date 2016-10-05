@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdint.h>
 #include <vector>
 #include <string>
@@ -16,6 +17,7 @@ namespace tsync
         public:
             BasicEvent(char);
             void SetTime(uint64_t);
+            virtual void StoreToFile(FILE*);
 
         protected:
             char type;
@@ -32,6 +34,11 @@ namespace tsync
             void AddDouble(double);
             void AddString(std::string);
 
+            void StoreToFile(FILE*);
+
+        protected:
+            virtual void StoreOwnData(FILE*);
+
         private:
             int32_t id;
             std::vector<Token> tokens;
@@ -42,28 +49,32 @@ namespace tsync
 
     class SendEvent : BasicEvent
     {
-    //TODO: store targets number and then ids
         public:
             SendEvent(char);
             void SetSize(uint64_t);
             void SetEdge(int32_t);
             void AddTarget(int32_t);
 
+            void StoreToFile(FILE*);
+
         private:
             uint64_t msg_size;
             int32_t edge_id;
+            int32_t tnum;
             std::vector<int32_t> targets;
     };
 
     class TransitionEvent : TokenEvent
     {
-    //TODO: when storing result use TokenEvent including virtual method for Trasitiondata storing
         public:
             TransitionEvent(char);
             void AddTransitionToken(Token);
             void AddTransitionInt(int32_t);
             void AddTransitionDouble(double);
             void AddTransitionString(std::string);
+
+        protected:
+            void StoreOwnData(FILE*);
 
         private:
             std::vector<Token> t_tokens;
