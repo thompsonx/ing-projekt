@@ -14,6 +14,7 @@ namespace tsync
             bool IsEndReached();
             int GetPointerPos();
             void Sync();
+            void Store();
 
             void SetTimeOffset(uint64_t);
             uint64_t GetTimeOffset();
@@ -28,14 +29,16 @@ namespace tsync
             int header_end;
             uint64_t time_offset;
 
+            std::vector<BasicEvent*> events;
+
             uint64_t ReadUint64();
             int32_t ReadInt32();
             double ReadDouble();
             std::string ReadString();
 
-            void ReadTransitionTraceFunctionData();
+            void ReadTransitionTraceFunctionData(TransitionEvent *);
             void PESend();
-            void ProcessTokensAdd();
+            void ProcessTokensAdd(TokenEvent *);
             void ProcessEnd();
             void PEQuit();
             void PETransitionFired();

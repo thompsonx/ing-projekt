@@ -59,7 +59,7 @@ void TokenEvent::StoreToFile(FILE* f)
 
     if (this->id >= 0)
     {
-        fwrite( &this->time, sizeof(int32_t), 1, f );
+        fwrite( &this->id, sizeof(int32_t), 1, f );
     }
 
     this->StoreOwnData(f);

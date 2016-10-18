@@ -24,7 +24,7 @@ namespace tsync
             uint64_t time;
     };
 
-    class TokenEvent : BasicEvent
+    class TokenEvent : public BasicEvent
     {
         public:
             TokenEvent(char);
@@ -47,7 +47,7 @@ namespace tsync
             std::vector<std::string> strings;
     };
 
-    class SendEvent : BasicEvent
+    class SendEvent : public BasicEvent
     {
         public:
             SendEvent(char);
@@ -64,7 +64,7 @@ namespace tsync
             std::vector<int32_t> targets;
     };
 
-    class TransitionEvent : TokenEvent
+    class TransitionEvent : public TokenEvent
     {
         public:
             TransitionEvent(char);

@@ -26,6 +26,7 @@ int Tracelog::GetPointerPos()
 void Tracelog::Load()
 {
     FILE *fp = fopen(this->filepath, "rb");
+    //FILE *fp = fopen("/home/tom/Dropbox/VSB/ING/Projekt/git/ing-projekt/bin/Debug/trace-0-0.ktt", "rb");
     if (fp)
     {
         std::string content;
@@ -55,16 +56,30 @@ void Tracelog::Load()
     this->pointer++;
 }
 
+void Tracelog::Store()
+{
+    //TODO: remove fixed name
+    FILE *fp = fopen("test.ktt", "wb");
+    // Store tracelog header
+    fwrite(&this->data[0], sizeof(char), this->header_end + 1, fp);
+    // Store events
+    for (size_t i = 0; i < this->events.size(); i++)
+    {
+        this->events[i]->StoreToFile(fp);
+    }
+    fclose(fp);
+}
+
 void Tracelog::Sync()
 {
-    for (int i = 0; i < 5; i++)
-    {
-        this->ProcessEvent();
-    }
-//    while (!this->IsEndReached())
+//    for (int i = 0; i < 5; i++)
 //    {
 //        this->ProcessEvent();
 //    }
+    while (!this->IsEndReached())
+    {
+        this->ProcessEvent();
+    }
 }
 
 void Tracelog::SetTimeOffset(uint64_t offset)
@@ -152,20 +167,24 @@ void Tracelog::ProcessEvent()
 
 void Tracelog::PESend()
 {
+    SendEvent * event = new SendEvent('M');
     uint64_t time = this->ReadUint64();
-    this->ReadUint64();
-    this->ReadInt32();
+    event->SetTime(time);
+    event->SetSize(this->ReadUint64());
+    event->SetEdge(this->ReadInt32());
     //TODO: Sync
     int32_t targets = this->ReadInt32();
     int32_t target_ids[targets];
     for (int32_t i = 0; i < targets; i++)
     {
         target_ids[i] = this->ReadInt32();
+        event->AddTarget(target_ids[i]);
         //TODO: extra_event_send
     }
+    this->events.push_back(event);
 }
 
-void Tracelog::ProcessTokensAdd()
+void Tracelog::ProcessTokensAdd(TokenEvent * event)
 {
     //TODO: data storing
     while (!this->IsEndReached())
@@ -174,20 +193,22 @@ void Tracelog::ProcessTokensAdd()
         this->pointer++;
         if (t == 't')
         {
-            this->ReadUint64();
-            this->ReadInt32();
+            Token tkn;
+            tkn.pointer = this->ReadUint64();
+            tkn.place_id = this->ReadInt32();
+            event->AddToken(tkn);
         }
         else if (t == 'i')
         {
-            this->ReadInt32();
+            event->AddInt(this->ReadInt32());
         }
         else if (t == 'd')
         {
-            this->ReadDouble();
+            event->AddDouble(this->ReadDouble());
         }
         else if (t == 's')
         {
-            this->ReadString();
+            event->AddString(this->ReadString());
         }
         else if (t == 'M')
         {
@@ -201,7 +222,7 @@ void Tracelog::ProcessTokensAdd()
     }
 }
 
-void Tracelog::ReadTransitionTraceFunctionData()
+void Tracelog::ReadTransitionTraceFunctionData(TransitionEvent * event)
 {
     while (!this->IsEndReached())
     {
@@ -209,20 +230,22 @@ void Tracelog::ReadTransitionTraceFunctionData()
         this->pointer++;
         if (t == 'r')
         {
-            this->ReadUint64();
-            this->ReadInt32();
+            Token tkn;
+            tkn.pointer = this->ReadUint64();
+            tkn.place_id = this->ReadInt32();
+            event->AddTransitionToken(tkn);
         }
         else if (t == 'i')
         {
-            this->ReadInt32();
+            event->AddTransitionInt(this->ReadInt32());
         }
         else if (t == 'd')
         {
-            this->ReadDouble();
+            event->AddTransitionDouble(this->ReadDouble());
         }
         else if (t == 's')
         {
-            this->ReadString();
+            event->AddTransitionString(this->ReadString());
         }
         else
         {
@@ -239,10 +262,13 @@ void Tracelog::PEQuit()
     {
         return;
     }
+    BasicEvent * event = new BasicEvent('Q');
     //TODO: store data
     this->pointer++;
     uint64_t time = this->ReadUint64();
     //TODO: sync
+    event->SetTime(time);
+    this->events.push_back(event);
 }
 
 void Tracelog::ProcessEnd()
@@ -252,52 +278,69 @@ void Tracelog::ProcessEnd()
     {
         return;
     }
+    BasicEvent * event = new BasicEvent('X');
     //TODO: store data
     this->pointer++;
     uint64_t time = this->ReadUint64();
     //TODO: sync
+    event->SetTime(time);
+    this->events.push_back(event);
 }
 
 void Tracelog::PETransitionFired()
 {
+    TransitionEvent * event = new TransitionEvent('T');
     //TODO: store data and sync
     uint64_t time = this->ReadUint64();
-    int32_t transition_id = this->ReadInt32();
-    this->ReadTransitionTraceFunctionData();
+    event->SetTime(time);
+    event->SetId(this->ReadInt32());
+    this->events.push_back(event);
+    this->ReadTransitionTraceFunctionData(event);
     this->PEQuit();
-    this->ProcessTokensAdd();
+    this->ProcessTokensAdd(event);
     this->ProcessEnd();
 }
 
 void Tracelog::PETransitionFinished()
 {
+    TokenEvent * event = new TokenEvent('F');
     //TODO: store data and sync
     uint64_t time = this->ReadUint64();
+    event->SetTime(time);
+    this->events.push_back(event);
     this->PEQuit();
-    this->ProcessTokensAdd();
+    this->ProcessTokensAdd(event);
     this->ProcessEnd();
 }
 
 void Tracelog::PEReceive()
 {
+    TokenEvent * event = new TokenEvent('R');
     //TODO: store data and sync
     uint64_t time = this->ReadUint64();
-    this->ReadInt32();
-    this->ProcessTokensAdd();
+    event->SetTime(time);
+    event->SetId(this->ReadInt32());
+    this->events.push_back(event);
+    this->ProcessTokensAdd(event);
     this->ProcessEnd();
 }
 
 void Tracelog::PESpawn()
 {
+    TokenEvent * event = new TokenEvent('S');
     uint64_t time = this->ReadUint64();
-    int32_t netid = this->ReadInt32();
+    event->SetTime(time);
+    event->SetId(this->ReadInt32());
+    this->events.push_back(event);
     //TODO: sync
-    this->ProcessTokensAdd();
+    this->ProcessTokensAdd(event);
 }
 
 void Tracelog::PEIdle()
 {
+    BasicEvent * event = new BasicEvent('I');
     uint64_t time = this->ReadUint64();
     //TODO: save and sync
+    event->SetTime(time);
+    this->events.push_back(event);
 }
-
