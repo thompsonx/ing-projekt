@@ -4,9 +4,9 @@
 #include <inttypes.h>
 #include <stdexcept>
 #include <sstream>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include "tracelog.h"
-
-//TODO: necist a jen preskakovat neoupizavana data, nelze u stringu - neznam delku, jak ukladat prectena data?
 
 using namespace tsync;
 
@@ -16,6 +16,17 @@ Tracelog::Tracelog(char * filepath, int process_id, int min_evnt_dif, int min_ms
     this->process_id = process_id;
     this->min_evnt_dif = min_evnt_dif;
     this->min_msg_dly = min_msg_dly;
+    this->ParsePath(this->filepath, &this->path, &this->filename);
+}
+
+void Tracelog::ParsePath(char * filepath, std::string * path, std::string * filename)
+{
+    int len = strlen(filepath);
+    int p;
+    for (p = len - 1; p >= 0 && filepath[p] != '/'; p--);
+    p++;
+    path->assign(filepath, p);
+    filename->assign(filepath + p , len - p);
 }
 
 int Tracelog::GetPointerPos()
@@ -23,10 +34,15 @@ int Tracelog::GetPointerPos()
     return this->pointer - &this->data[0];
 }
 
+void Tracelog::MakeDir(const char * path)
+{
+    if ( mkdir(path, 0700) != 0 )
+        throw errno;
+}
+
 void Tracelog::Load()
 {
     FILE *fp = fopen(this->filepath, "rb");
-    //FILE *fp = fopen("/home/tom/Dropbox/VSB/ING/Projekt/git/ing-projekt/bin/Debug/trace-0-0.ktt", "rb");
     if (fp)
     {
         std::string content;
@@ -44,6 +60,7 @@ void Tracelog::Load()
         throw errno;
     }
 
+    //Read header
     char block[2] = { 1, 1 };
     this->pointer = &this->data[0];
     while ( (block[0] != 0) || (block[1] != 0) )
@@ -58,8 +75,14 @@ void Tracelog::Load()
 
 void Tracelog::Store()
 {
-    //TODO: remove fixed name
-    FILE *fp = fopen("test.ktt", "wb");
+    // Prepate store location
+    std::string store_path(this->path);
+    store_path.append("synced");
+    this->MakeDir(store_path.c_str());
+    store_path.push_back('/');
+    store_path.append(this->filename);
+
+    FILE *fp = fopen(store_path.c_str(), "wb");
     // Store tracelog header
     fwrite(&this->data[0], sizeof(char), this->header_end + 1, fp);
     // Store events
