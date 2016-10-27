@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include "tracelog.h"
 
+
 using namespace tsync;
 
 Tracelog::Tracelog(char * filepath, int process_id, int min_evnt_dif, int min_msg_dly)
@@ -190,9 +191,7 @@ void Tracelog::ProcessEvent()
 
 void Tracelog::PESend()
 {
-    SendEvent * event = new SendEvent('M');
-    uint64_t time = this->ReadUint64();
-    event->SetTime(time);
+    SendEvent * event = new SendEvent(this->ReadUint64());
     event->SetSize(this->ReadUint64());
     event->SetEdge(this->ReadInt32());
     //TODO: Sync
@@ -204,7 +203,6 @@ void Tracelog::PESend()
         event->AddTarget(target_ids[i]);
         //TODO: extra_event_send
     }
-    this->events.push_back(event);
 }
 
 void Tracelog::ProcessTokensAdd(TokenEvent * event)
@@ -285,85 +283,71 @@ void Tracelog::PEQuit()
     {
         return;
     }
-    BasicEvent * event = new BasicEvent('Q');
     //TODO: store data
     this->pointer++;
-    uint64_t time = this->ReadUint64();
+    BasicEvent * event = new BasicEvent('Q', this->ReadUint64());
     //TODO: sync
-    event->SetTime(time);
-    this->events.push_back(event);
 }
 
-void Tracelog::ProcessEnd()
+void Tracelog::PEEnd()
 {
     char t = *this->pointer;
     if (t != 'X')
     {
         return;
     }
-    BasicEvent * event = new BasicEvent('X');
     //TODO: store data
     this->pointer++;
-    uint64_t time = this->ReadUint64();
     //TODO: sync
-    event->SetTime(time);
-    this->events.push_back(event);
+    BasicEvent * event = new BasicEvent('X', this->ReadUint64());
 }
 
 void Tracelog::PETransitionFired()
 {
-    TransitionEvent * event = new TransitionEvent('T');
+    TransitionEvent * event = new TransitionEvent('T', this->ReadUint64());
     //TODO: store data and sync
-    uint64_t time = this->ReadUint64();
-    event->SetTime(time);
     event->SetId(this->ReadInt32());
-    this->events.push_back(event);
     this->ReadTransitionTraceFunctionData(event);
     this->PEQuit();
     this->ProcessTokensAdd(event);
-    this->ProcessEnd();
+    this->PEEnd();
 }
 
 void Tracelog::PETransitionFinished()
 {
-    TokenEvent * event = new TokenEvent('F');
+    TokenEvent * event = new TokenEvent('F', this->ReadUint64());
     //TODO: store data and sync
-    uint64_t time = this->ReadUint64();
-    event->SetTime(time);
-    this->events.push_back(event);
     this->PEQuit();
     this->ProcessTokensAdd(event);
-    this->ProcessEnd();
+    this->PEEnd();
 }
 
 void Tracelog::PEReceive()
 {
-    TokenEvent * event = new TokenEvent('R');
-    //TODO: store data and sync
     uint64_t time = this->ReadUint64();
-    event->SetTime(time);
-    event->SetId(this->ReadInt32());
-    this->events.push_back(event);
+    int32_t sender = this->ReadInt32();
+    ReceiveEvent * event = new ReceiveEvent(time, sender);
+    //TODO: store data and sync
     this->ProcessTokensAdd(event);
-    this->ProcessEnd();
+    this->PEEnd();
 }
 
 void Tracelog::PESpawn()
 {
-    TokenEvent * event = new TokenEvent('S');
-    uint64_t time = this->ReadUint64();
-    event->SetTime(time);
+    TokenEvent * event = new TokenEvent('S', this->ReadUint64());
     event->SetId(this->ReadInt32());
-    this->events.push_back(event);
     //TODO: sync
     this->ProcessTokensAdd(event);
 }
 
 void Tracelog::PEIdle()
 {
-    BasicEvent * event = new BasicEvent('I');
-    uint64_t time = this->ReadUint64();
+    BasicEvent * event = new BasicEvent('I', this->ReadUint64());
     //TODO: save and sync
-    event->SetTime(time);
+}
+
+void Tracelog::Synchronize(BasicEvent * event)
+{
+
     this->events.push_back(event);
 }

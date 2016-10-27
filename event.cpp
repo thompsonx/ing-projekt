@@ -4,9 +4,10 @@ using namespace tsync;
 
 /* Event Class */
 
-BasicEvent::BasicEvent(char type)
+BasicEvent::BasicEvent(char type, uint64_t time)
 {
     this->type = type;
+    this->time = time;
 }
 
 void BasicEvent::SetTime(uint64_t time)
@@ -23,7 +24,7 @@ void BasicEvent::StoreToFile(FILE* f)
 
 /* TokenEvent Class */
 
-TokenEvent::TokenEvent(char type):BasicEvent(type)
+TokenEvent::TokenEvent(char type, uint64_t time):BasicEvent(type, time)
 {
     this->id = -1;
 }
@@ -31,6 +32,11 @@ TokenEvent::TokenEvent(char type):BasicEvent(type)
 void TokenEvent::SetId(int32_t id)
 {
     this->id = id;
+}
+
+int32_t TokenEvent::GetId()
+{
+    return this->id;
 }
 
 void TokenEvent::AddToken(Token t)
@@ -96,7 +102,7 @@ void TokenEvent::StoreOwnData(FILE*) {}
 
 /* SendEvent Class */
 
-SendEvent::SendEvent(char type):BasicEvent(type)
+SendEvent::SendEvent(uint64_t time):BasicEvent('M', time)
 {
     this->tnum = 0;
 }
@@ -131,9 +137,24 @@ void SendEvent::StoreToFile(FILE* f)
     }
 }
 
+
+
+/* ReceiveEvent Class */
+
+ReceiveEvent::ReceiveEvent(uint64_t time, int32_t sender_id):TokenEvent('R', time)
+{
+    this->SetId(sender_id);
+}
+
+int32_t ReceiveEvent::GetSender()
+{
+    return this->GetId();
+}
+
+
 /* TransitionEvent Class */
 
-TransitionEvent::TransitionEvent(char type):TokenEvent(type) {}
+TransitionEvent::TransitionEvent(char type, uint64_t time):TokenEvent(type, time) {}
 
 void TransitionEvent::AddTransitionToken(Token t)
 {

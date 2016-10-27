@@ -37,6 +37,7 @@ namespace tsync
             uint64_t time_offset;
 
             std::vector<BasicEvent*> events;
+            void Synchronize(BasicEvent *);
 
             uint64_t ReadUint64();
             int32_t ReadInt32();
@@ -46,7 +47,7 @@ namespace tsync
             void ReadTransitionTraceFunctionData(TransitionEvent *);
             void PESend();
             void ProcessTokensAdd(TokenEvent *);
-            void ProcessEnd();
+            void PEEnd();
             void PEQuit();
             void PETransitionFired();
             void PETransitionFinished();

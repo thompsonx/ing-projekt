@@ -15,7 +15,7 @@ namespace tsync
     class BasicEvent
     {
         public:
-            BasicEvent(char);
+            BasicEvent(char, uint64_t);
             void SetTime(uint64_t);
             virtual void StoreToFile(FILE*);
 
@@ -27,8 +27,9 @@ namespace tsync
     class TokenEvent : public BasicEvent
     {
         public:
-            TokenEvent(char);
+            TokenEvent(char, uint64_t);
             void SetId(int32_t);
+            int32_t GetId();
             void AddToken(Token);
             void AddInt(int32_t);
             void AddDouble(double);
@@ -50,7 +51,7 @@ namespace tsync
     class SendEvent : public BasicEvent
     {
         public:
-            SendEvent(char);
+            SendEvent(uint64_t);
             void SetSize(uint64_t);
             void SetEdge(int32_t);
             void AddTarget(int32_t);
@@ -64,10 +65,17 @@ namespace tsync
             std::vector<int32_t> targets;
     };
 
+    class ReceiveEvent : public TokenEvent
+    {
+        public:
+            ReceiveEvent(uint64_t, int32_t);
+            int32_t GetSender();
+    };
+
     class TransitionEvent : public TokenEvent
     {
         public:
-            TransitionEvent(char);
+            TransitionEvent(char, uint64_t);
             void AddTransitionToken(Token);
             void AddTransitionInt(int32_t);
             void AddTransitionDouble(double);
