@@ -15,6 +15,16 @@ void BasicEvent::SetTime(uint64_t time)
     this->time = time;
 }
 
+uint64_t BasicEvent::GetTime()
+{
+    return this->time;
+}
+
+char BasicEvent::GetType()
+{
+    return this->type;
+}
+
 void BasicEvent::StoreToFile(FILE* f)
 {
     fwrite( &this->type, sizeof(char), 1, f );
@@ -149,6 +159,16 @@ ReceiveEvent::ReceiveEvent(uint64_t time, int32_t sender_id):TokenEvent('R', tim
 int32_t ReceiveEvent::GetSender()
 {
     return this->GetId();
+}
+
+void ReceiveEvent::SetGap(uint64_t gap)
+{
+    this->gap = gap;
+}
+
+uint64_t ReceiveEvent::GetGap()
+{
+    return this->gap;
 }
 
 

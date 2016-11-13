@@ -17,6 +17,8 @@ namespace tsync
         public:
             BasicEvent(char, uint64_t);
             void SetTime(uint64_t);
+            uint64_t GetTime();
+            char GetType();
             virtual void StoreToFile(FILE*);
 
         protected:
@@ -70,6 +72,11 @@ namespace tsync
         public:
             ReceiveEvent(uint64_t, int32_t);
             int32_t GetSender();
+            void SetGap(uint64_t);
+            uint64_t GetGap();
+
+        private:
+            uint64_t gap;
     };
 
     class TransitionEvent : public TokenEvent

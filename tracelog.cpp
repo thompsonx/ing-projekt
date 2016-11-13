@@ -6,8 +6,10 @@
 #include <sstream>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <algorithm>
 #include "tracelog.h"
 
+//TODO: zamezit dvoji synchronizaci/nacteni - osetrit v Load, Sync
 
 using namespace tsync;
 
@@ -17,7 +19,13 @@ Tracelog::Tracelog(char * filepath, int process_id, int min_evnt_dif, int min_ms
     this->process_id = process_id;
     this->min_evnt_dif = min_evnt_dif;
     this->min_msg_dly = min_msg_dly;
+    this->last_violating_index = -1;
     this->ParsePath(this->filepath, &this->path, &this->filename);
+}
+
+Tracelog::~Tracelog()
+{
+    //TODO: Vycistit vektory s eventy: events, violating
 }
 
 void Tracelog::ParsePath(char * filepath, std::string * path, std::string * filename)
@@ -37,8 +45,12 @@ int Tracelog::GetPointerPos()
 
 void Tracelog::MakeDir(const char * path)
 {
-    if ( mkdir(path, 0700) != 0 )
-        throw errno;
+    struct stat sb;
+    if ( stat(path, &sb) != 0 || !S_ISDIR(sb.st_mode) )
+    {
+        if ( mkdir(path, 0700) != 0 )
+            throw errno;
+    }
 }
 
 void Tracelog::Load()
@@ -76,7 +88,7 @@ void Tracelog::Load()
 
 void Tracelog::Store()
 {
-    // Prepate store location
+    // Prepare store location
     std::string store_path(this->path);
     store_path.append("synced");
     this->MakeDir(store_path.c_str());
@@ -161,7 +173,6 @@ void Tracelog::ProcessEvent()
 {
     char t = *this->pointer;
     this->pointer++;
-    //TODO: extra event
     switch (t)
     {
         case 'T':
@@ -189,25 +200,8 @@ void Tracelog::ProcessEvent()
     }
 }
 
-void Tracelog::PESend()
-{
-    SendEvent * event = new SendEvent(this->ReadUint64());
-    event->SetSize(this->ReadUint64());
-    event->SetEdge(this->ReadInt32());
-    //TODO: Sync
-    int32_t targets = this->ReadInt32();
-    int32_t target_ids[targets];
-    for (int32_t i = 0; i < targets; i++)
-    {
-        target_ids[i] = this->ReadInt32();
-        event->AddTarget(target_ids[i]);
-        //TODO: extra_event_send
-    }
-}
-
 void Tracelog::ProcessTokensAdd(TokenEvent * event)
 {
-    //TODO: data storing
     while (!this->IsEndReached())
     {
         char t = *this->pointer;
@@ -276,6 +270,26 @@ void Tracelog::ReadTransitionTraceFunctionData(TransitionEvent * event)
     }
 }
 
+void Tracelog::PESend()
+{
+    SendEvent * event = new SendEvent(this->ReadUint64());
+    event->SetSize(this->ReadUint64());
+    event->SetEdge(this->ReadInt32());
+    this->Synchronize(event);
+
+    int32_t targets = this->ReadInt32();
+    int32_t target_ids[targets];
+    printf("SEND(%d): ", targets);
+    for (int32_t i = 0; i < targets; i++)
+    {
+        target_ids[i] = this->ReadInt32();
+        printf("%" PRIu64 ", ", target_ids[i]);
+        event->AddTarget(target_ids[i]);
+        //TODO: INTERPROCESS EXCHANGE
+    }
+    printf("\n");
+}
+
 void Tracelog::PEQuit()
 {
     char t = *this->pointer;
@@ -283,10 +297,10 @@ void Tracelog::PEQuit()
     {
         return;
     }
-    //TODO: store data
     this->pointer++;
+
     BasicEvent * event = new BasicEvent('Q', this->ReadUint64());
-    //TODO: sync
+    this->Synchronize(event);
 }
 
 void Tracelog::PEEnd()
@@ -296,16 +310,16 @@ void Tracelog::PEEnd()
     {
         return;
     }
-    //TODO: store data
     this->pointer++;
-    //TODO: sync
+
     BasicEvent * event = new BasicEvent('X', this->ReadUint64());
+    this->Synchronize(event);
 }
 
 void Tracelog::PETransitionFired()
 {
     TransitionEvent * event = new TransitionEvent('T', this->ReadUint64());
-    //TODO: store data and sync
+    this->Synchronize(event);
     event->SetId(this->ReadInt32());
     this->ReadTransitionTraceFunctionData(event);
     this->PEQuit();
@@ -316,7 +330,8 @@ void Tracelog::PETransitionFired()
 void Tracelog::PETransitionFinished()
 {
     TokenEvent * event = new TokenEvent('F', this->ReadUint64());
-    //TODO: store data and sync
+    this->Synchronize(event);
+
     this->PEQuit();
     this->ProcessTokensAdd(event);
     this->PEEnd();
@@ -327,7 +342,8 @@ void Tracelog::PEReceive()
     uint64_t time = this->ReadUint64();
     int32_t sender = this->ReadInt32();
     ReceiveEvent * event = new ReceiveEvent(time, sender);
-    //TODO: store data and sync
+    this->SynchronizeRecv(event);
+
     this->ProcessTokensAdd(event);
     this->PEEnd();
 }
@@ -336,18 +352,53 @@ void Tracelog::PESpawn()
 {
     TokenEvent * event = new TokenEvent('S', this->ReadUint64());
     event->SetId(this->ReadInt32());
-    //TODO: sync
+    // No sync because 'spawn' is an initial event, nothing precedes it
+    this->events.push_back(event);
     this->ProcessTokensAdd(event);
 }
 
 void Tracelog::PEIdle()
 {
     BasicEvent * event = new BasicEvent('I', this->ReadUint64());
-    //TODO: save and sync
+    this->Synchronize(event);
 }
 
 void Tracelog::Synchronize(BasicEvent * event)
 {
+    uint64_t time = event->GetTime() + this->time_offset;
+    uint64_t prev = this->events.back()->GetTime() + this->min_evnt_dif;
+
+    if (prev > time)
+    {
+        time = prev;
+    }
+
+    event->SetTime(time);
 
     this->events.push_back(event);
 }
+
+void Tracelog::SynchronizeRecv(ReceiveEvent * event)
+{
+    uint64_t times[3];
+    uint64_t time = event->GetTime() + this->time_offset;
+    times[0] = time;
+    times[1] = this->events.back()->GetTime() + this->min_evnt_dif;
+    times[2] = this->CollectSentTime(event) + this->min_msg_dly;
+
+    uint64_t synced_time = *std::max_element( times, times + 3 );
+
+    if ( synced_time > time )
+    {
+        uint64_t diff = synced_time - time;
+        this->time_offset += diff;
+        event->SetGap(diff);
+        this->violating.push_back(event);
+        this->last_violating_index = this->events.size();
+    }
+
+    event->SetTime(synced_time);
+    this->events.push_back(event);
+}
+
+uint64_t Tracelog::CollectSentTime(ReceiveEvent * event) {};

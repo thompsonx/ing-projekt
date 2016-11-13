@@ -10,6 +10,7 @@ namespace tsync
 
         public:
             Tracelog(char *, int, int, int);
+            ~Tracelog();
             void Load();
             bool IsEndReached();
             int GetPointerPos();
@@ -23,6 +24,7 @@ namespace tsync
 
         protected:
             virtual void MakeDir(const char *);
+            virtual uint64_t CollectSentTime(ReceiveEvent *);
 
         private:
             char * filepath;
@@ -37,7 +39,10 @@ namespace tsync
             uint64_t time_offset;
 
             std::vector<BasicEvent*> events;
+            std::vector<ReceiveEvent*> violating;
+            size_t last_violating_index;
             void Synchronize(BasicEvent *);
+            void SynchronizeRecv(ReceiveEvent *);
 
             uint64_t ReadUint64();
             int32_t ReadInt32();
