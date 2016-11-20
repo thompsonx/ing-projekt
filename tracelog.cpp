@@ -10,6 +10,8 @@
 #include "tracelog.h"
 
 //TODO: zamezit dvoji synchronizaci/nacteni - osetrit v Load, Sync
+//TODO: initial offset - srovnat spawn time, prepsat init na jeden spolecny
+//TODO: velikost this->events pocatecni alokace
 
 using namespace tsync;
 
@@ -49,7 +51,11 @@ void Tracelog::MakeDir(const char * path)
     if ( stat(path, &sb) != 0 || !S_ISDIR(sb.st_mode) )
     {
         if ( mkdir(path, 0700) != 0 )
-            throw errno;
+        {
+            std::ostringstream exptn_text;
+            exptn_text << "Cannot create a folder for result! Path: '" << path << "'";
+            throw std::invalid_argument(exptn_text.str());
+        }
     }
 }
 
@@ -70,7 +76,9 @@ void Tracelog::Load()
         this->data = content;
     }
     else {
-        throw errno;
+        std::ostringstream exptn_text;
+        exptn_text << "Cannot open tracelog file! Path: '" << this->filepath << "'";
+        throw std::invalid_argument(exptn_text.str());
     }
 
     //Read header
@@ -108,14 +116,12 @@ void Tracelog::Store()
 
 void Tracelog::Sync()
 {
-//    for (int i = 0; i < 5; i++)
-//    {
-//        this->ProcessEvent();
-//    }
     while (!this->IsEndReached())
     {
         this->ProcessEvent();
     }
+    this->PrepareBackwardAmortization();
+    this->BackwardAmortization();
 }
 
 void Tracelog::SetTimeOffset(uint64_t offset)
@@ -279,15 +285,12 @@ void Tracelog::PESend()
 
     int32_t targets = this->ReadInt32();
     int32_t target_ids[targets];
-    printf("SEND(%d): ", targets);
     for (int32_t i = 0; i < targets; i++)
     {
         target_ids[i] = this->ReadInt32();
-        printf("%" PRIu64 ", ", target_ids[i]);
         event->AddTarget(target_ids[i]);
-        //TODO: INTERPROCESS EXCHANGE
     }
-    printf("\n");
+    this->ForwardSentTime(event);
 }
 
 void Tracelog::PEQuit()
@@ -401,4 +404,36 @@ void Tracelog::SynchronizeRecv(ReceiveEvent * event)
     this->events.push_back(event);
 }
 
-uint64_t Tracelog::CollectSentTime(ReceiveEvent * event) {};
+void Tracelog::BackwardAmortization()
+{
+    if ( this->violating.size() == 0 )
+        return;
+
+    int v_index = this->violating.size() - 1;
+    ReceiveEvent * v_recv = this->violating[ v_index ];
+    uint64_t offset = v_recv->GetGap();
+
+    for (size_t i = this->last_violating_index - 1; i >= 0; i--)
+    {
+        BasicEvent * e = this->events[i];
+        if (e->GetType() == 'M')
+        {
+            SendEvent * se = (SendEvent *) e;
+            uint64_t max_offset = se->GetMaxOffset();
+            if (max_offset < offset)
+            {
+                offset = max_offset;
+            }
+        }
+
+        uint64_t tmp_time = e->GetTime();
+        e->SetTime( tmp_time + offset );
+
+        if ( !this->violating.empty() && (e == this->violating[ v_index - 1 ]) )
+        {
+            v_index--;
+            v_recv = this->violating[v_index];
+            offset += v_recv->GetGap();
+        }
+    }
+}

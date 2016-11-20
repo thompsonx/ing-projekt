@@ -115,6 +115,7 @@ void TokenEvent::StoreOwnData(FILE*) {}
 SendEvent::SendEvent(uint64_t time):BasicEvent('M', time)
 {
     this->tnum = 0;
+    this->received_time = -1;
 }
 
 void SendEvent::SetSize(uint64_t s)
@@ -131,6 +132,24 @@ void SendEvent::AddTarget(int32_t t)
 {
     this->targets.push_back(t);
     this->tnum++;
+}
+
+void SendEvent::UpdateRecvTime(uint64_t recv_time)
+{
+    if ( recv_time < this->received_time )
+    {
+        this->received_time = recv_time;
+    }
+}
+
+uint64_t SendEvent::GetRecvTime()
+{
+    return this->received_time;
+}
+
+uint64_t SendEvent::GetMaxOffset()
+{
+    return this->received_time - this->time;
 }
 
 void SendEvent::StoreToFile(FILE* f)
@@ -173,8 +192,6 @@ uint64_t ReceiveEvent::GetGap()
 
 
 /* TransitionEvent Class */
-
-TransitionEvent::TransitionEvent(char type, uint64_t time):TokenEvent(type, time) {}
 
 void TransitionEvent::AddTransitionToken(Token t)
 {

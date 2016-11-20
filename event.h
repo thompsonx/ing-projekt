@@ -37,7 +37,7 @@ namespace tsync
             void AddDouble(double);
             void AddString(std::string);
 
-            void StoreToFile(FILE*);
+            void StoreToFile(FILE*) override;
 
         protected:
             virtual void StoreOwnData(FILE*);
@@ -57,14 +57,18 @@ namespace tsync
             void SetSize(uint64_t);
             void SetEdge(int32_t);
             void AddTarget(int32_t);
+            void UpdateRecvTime(uint64_t);
+            uint64_t GetRecvTime();
+            uint64_t GetMaxOffset();
 
-            void StoreToFile(FILE*);
+            virtual void StoreToFile(FILE*) override;
 
         private:
             uint64_t msg_size;
             int32_t edge_id;
             int32_t tnum;
             std::vector<int32_t> targets;
+            uint64_t received_time;
     };
 
     class ReceiveEvent : public TokenEvent
@@ -82,14 +86,14 @@ namespace tsync
     class TransitionEvent : public TokenEvent
     {
         public:
-            TransitionEvent(char, uint64_t);
+            using TokenEvent::TokenEvent;
             void AddTransitionToken(Token);
             void AddTransitionInt(int32_t);
             void AddTransitionDouble(double);
             void AddTransitionString(std::string);
 
         protected:
-            void StoreOwnData(FILE*);
+            virtual void StoreOwnData(FILE*) override;
 
         private:
             std::vector<Token> t_tokens;

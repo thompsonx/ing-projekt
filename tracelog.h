@@ -24,7 +24,9 @@ namespace tsync
 
         protected:
             virtual void MakeDir(const char *);
-            virtual uint64_t CollectSentTime(ReceiveEvent *);
+            virtual uint64_t CollectSentTime(ReceiveEvent *)=0;
+            virtual void ForwardSentTime(SendEvent *)=0;
+            virtual void PrepareBackwardAmortization()=0;
 
         private:
             char * filepath;
@@ -43,6 +45,7 @@ namespace tsync
             size_t last_violating_index;
             void Synchronize(BasicEvent *);
             void SynchronizeRecv(ReceiveEvent *);
+            void BackwardAmortization();
 
             uint64_t ReadUint64();
             int32_t ReadInt32();
