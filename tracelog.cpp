@@ -9,7 +9,7 @@
 #include <algorithm>
 #include "tracelog.h"
 
-//TODO: initial offset - srovnat spawn time, prepsat init na jeden spolecny
+//TODO: initial offset - srovnat spawn time, prepsat init na jeden spolecny, SPAWN event pricteni casu!
 //TODO: vytvareni cilove slozky pouze na masterovi
 
 using namespace tsync;
@@ -36,7 +36,11 @@ Tracelog::Tracelog(char * path, int process_id, int min_evnt_dif, int min_msg_dl
 
 Tracelog::~Tracelog()
 {
-    //TODO: Vycistit vektory s eventy: events, violating
+    for (auto i = this->events.begin(); i != this->events.end(); i++)
+    {
+        delete (*i);
+    }
+    this->events.clear();
 }
 
 int Tracelog::GetPointerPos()

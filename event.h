@@ -16,6 +16,7 @@ namespace tsync
     {
         public:
             BasicEvent(char, uint64_t);
+            virtual ~BasicEvent() {};
             void SetTime(uint64_t);
             uint64_t GetTime();
             char GetType();
