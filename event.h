@@ -60,6 +60,8 @@ namespace tsync
             void UpdateRecvTime(uint64_t);
             uint64_t GetRecvTime();
             uint64_t GetMaxOffset();
+            std::vector<int32_t>::const_iterator Tcbegin();
+            std::vector<int32_t>::const_iterator Tcend();
 
             virtual void StoreToFile(FILE*) override;
 

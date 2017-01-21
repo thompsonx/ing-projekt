@@ -11,33 +11,31 @@
 
 //TODO: zamezit dvoji synchronizaci/nacteni - osetrit v Load, Sync
 //TODO: initial offset - srovnat spawn time, prepsat init na jeden spolecny
-//TODO: velikost this->events pocatecni alokace
+//TODO: vytvareni cilove slozky pouze na masterovi
 
 using namespace tsync;
 
-Tracelog::Tracelog(char * filepath, int process_id, int min_evnt_dif, int min_msg_dly)
+Tracelog::Tracelog(char * path, int process_id, int min_evnt_dif, int min_msg_dly)
 {
-    this->filepath = filepath;
+    this->path = path;
     this->process_id = process_id;
     this->min_evnt_dif = min_evnt_dif;
     this->min_msg_dly = min_msg_dly;
     this->last_violating_index = -1;
-    this->ParsePath(this->filepath, &this->path, &this->filename);
+
+    this->filename.append("trace-");
+    this->filename.push_back(char(process_id + 48));
+    this->filename.append("-0.ktt");
+
+    this->filepath.append(path);
+    if (this->filepath.back() != '/')
+        this->filepath.append("/");
+    this->filepath.append(filename);
 }
 
 Tracelog::~Tracelog()
 {
     //TODO: Vycistit vektory s eventy: events, violating
-}
-
-void Tracelog::ParsePath(char * filepath, std::string * path, std::string * filename)
-{
-    int len = strlen(filepath);
-    int p;
-    for (p = len - 1; p >= 0 && filepath[p] != '/'; p--);
-    p++;
-    path->assign(filepath, p);
-    filename->assign(filepath + p , len - p);
 }
 
 int Tracelog::GetPointerPos()
@@ -61,7 +59,7 @@ void Tracelog::MakeDir(const char * path)
 
 void Tracelog::Load()
 {
-    FILE *fp = fopen(this->filepath, "rb");
+    FILE *fp = fopen(this->filepath.c_str(), "rb");
     if (fp)
     {
         std::string content;
@@ -81,7 +79,7 @@ void Tracelog::Load()
         throw std::invalid_argument(exptn_text.str());
     }
 
-    //Read header
+    // Read header
     char block[2] = { 1, 1 };
     this->pointer = &this->data[0];
     while ( (block[0] != 0) || (block[1] != 0) )
@@ -107,9 +105,9 @@ void Tracelog::Store()
     // Store tracelog header
     fwrite(&this->data[0], sizeof(char), this->header_end + 1, fp);
     // Store events
-    for (size_t i = 0; i < this->events.size(); i++)
+    for (auto i = this->events.begin(); i != this->events.end(); i++)
     {
-        this->events[i]->StoreToFile(fp);
+        (*i)->StoreToFile(fp);
     }
     fclose(fp);
 }
@@ -401,19 +399,20 @@ void Tracelog::SynchronizeRecv(ReceiveEvent * event)
     }
 
     event->SetTime(synced_time);
+    this->ForwardRecvTime(event);
     this->events.push_back(event);
 }
 
 void Tracelog::BackwardAmortization()
 {
-    if ( this->violating.size() == 0 )
+    if ( this->violating.empty() )
         return;
 
-    int v_index = this->violating.size() - 1;
-    ReceiveEvent * v_recv = this->violating[ v_index ];
+    ReceiveEvent * v_recv = this->violating.back();
     uint64_t offset = v_recv->GetGap();
+    this->violating.pop_back();
 
-    for (size_t i = this->last_violating_index - 1; i >= 0; i--)
+    for (int64_t i = this->last_violating_index - 1; i >= 0; --i)
     {
         BasicEvent * e = this->events[i];
         if (e->GetType() == 'M')
@@ -429,11 +428,11 @@ void Tracelog::BackwardAmortization()
         uint64_t tmp_time = e->GetTime();
         e->SetTime( tmp_time + offset );
 
-        if ( !this->violating.empty() && (e == this->violating[ v_index - 1 ]) )
+        if ( !this->violating.empty() && (e == this->violating.back()) )
         {
-            v_index--;
-            v_recv = this->violating[v_index];
+            v_recv = this->violating.back();
             offset += v_recv->GetGap();
+            this->violating.pop_back();
         }
     }
 }

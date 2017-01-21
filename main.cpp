@@ -7,10 +7,8 @@ int main(int argc, char * argv[])
 {
     cout << "Hello world!" << endl;
 
-    tsync::MpiTracelog t (argv[1], 0,0,0);
-    t.Load();
-    t.Sync();
-    t.Store();
+    tsync::MpiWizard mw;
+    mw.Run(argc, argv);
 
     return 0;
 }

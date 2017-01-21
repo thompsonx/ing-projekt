@@ -152,6 +152,16 @@ uint64_t SendEvent::GetMaxOffset()
     return this->received_time - this->time;
 }
 
+std::vector<int32_t>::const_iterator SendEvent::Tcbegin()
+{
+    return this->targets.cbegin();
+}
+
+std::vector<int32_t>::const_iterator SendEvent::Tcend()
+{
+    return this->targets.cend();
+}
+
 void SendEvent::StoreToFile(FILE* f)
 {
     BasicEvent::StoreToFile(f);

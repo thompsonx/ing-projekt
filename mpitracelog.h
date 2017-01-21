@@ -1,8 +1,20 @@
 #include "tracelog.h"
-//#include <mpi.h>
+#include <mpi.h>
+#include <list>
+
+#define MPI_TSYNC_SENTTIME 100
+#define MPI_TSYNC_RECVTIME 101
 
 namespace tsync
 {
+    struct RecvReq
+    {
+        uint64_t buf;
+        MPI_Request req;
+        SendEvent * event;
+    };
+
+
     class MpiTracelog : public Tracelog
     {
         public:
@@ -11,7 +23,20 @@ namespace tsync
         protected:
             virtual uint64_t CollectSentTime(ReceiveEvent *) override;
             virtual void ForwardSentTime(SendEvent *) override;
+            virtual void ForwardRecvTime(ReceiveEvent *) override;
             virtual void PrepareBackwardAmortization() override;
 
+        private:
+            std::list<RecvReq> requests;
     };
+
+
+    class MpiWizard
+    {
+
+        public:
+            void Run(int, char **);
+
+    };
+
 }
