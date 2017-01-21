@@ -47,6 +47,9 @@ namespace tsync
             void SynchronizeRecv(ReceiveEvent *);
             void BackwardAmortization();
 
+            bool synced;
+            bool loaded;
+
             uint64_t ReadUint64();
             int32_t ReadInt32();
             double ReadDouble();

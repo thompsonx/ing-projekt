@@ -9,7 +9,6 @@
 #include <algorithm>
 #include "tracelog.h"
 
-//TODO: zamezit dvoji synchronizaci/nacteni - osetrit v Load, Sync
 //TODO: initial offset - srovnat spawn time, prepsat init na jeden spolecny
 //TODO: vytvareni cilove slozky pouze na masterovi
 
@@ -22,6 +21,8 @@ Tracelog::Tracelog(char * path, int process_id, int min_evnt_dif, int min_msg_dl
     this->min_evnt_dif = min_evnt_dif;
     this->min_msg_dly = min_msg_dly;
     this->last_violating_index = -1;
+    this->loaded = false;
+    this->synced = false;
 
     this->filename.append("trace-");
     this->filename.push_back(char(process_id + 48));
@@ -59,6 +60,8 @@ void Tracelog::MakeDir(const char * path)
 
 void Tracelog::Load()
 {
+    if (this->loaded) return;
+
     FILE *fp = fopen(this->filepath.c_str(), "rb");
     if (fp)
     {
@@ -90,6 +93,8 @@ void Tracelog::Load()
     }
     this->header_end = this->pointer - &this->data[0];
     this->pointer++;
+
+    this->loaded = true;
 }
 
 void Tracelog::Store()
@@ -114,12 +119,16 @@ void Tracelog::Store()
 
 void Tracelog::Sync()
 {
+    if (this->synced) return;
+
     while (!this->IsEndReached())
     {
         this->ProcessEvent();
     }
     this->PrepareBackwardAmortization();
     this->BackwardAmortization();
+
+    this->synced = true;
 }
 
 void Tracelog::SetTimeOffset(uint64_t offset)
