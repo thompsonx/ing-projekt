@@ -35,6 +35,9 @@ namespace tsync
     {
 
         public:
+            void AlignSpawnTimes(MpiTracelog *, const int, int, char **);
+            void AdjustPath(std::string *);
+            void MakeDir(const char *);
             void Run(int, char **);
 
     };

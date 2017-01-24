@@ -1,5 +1,10 @@
 #include "mpitracelog.h"
 #include <stdlib.h>
+#include <errno.h>
+#include <stdexcept>
+#include <sstream>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 using namespace tsync;
 
@@ -87,23 +92,86 @@ void MpiWizard::Run(int argc, char * argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &pcount);
     MPI_Comm_rank(MPI_COMM_WORLD, &pid);
 
-    if (argc != 4)
+    if (argc < 4)
     {
-        if (!pid)
+        if (pid == 0)
         {
             printf("Incorrect number of passed arguments!\nMandatory arguments:\n"
             "\t 1. Path to a folder with tracelogs (also used as a save folder)\n"
             "\t 2. Minimum event difference [nanoseconds]\n"
-            "\t 3. Minimal message delay [nanoseconds]\n");
+            "\t 3. Minimal message delay [nanoseconds]\n"
+            "\nOptional arguments:\n"
+            "\t 4. Align spawn times [0 (default)/1]\n");
         }
         exit(0);
     }
 
-    MpiTracelog t (argv[1], pid, atoi(argv[2]), atoi(argv[3]));
+    // Source path
+    std::string path(argv[1]);
+    this->AdjustPath(&path);
+
+    // Save path
+    std::string dest(path);
+    dest.append("synced");
+    if (pid == 0) this->MakeDir(dest.c_str());
+    dest.push_back('/');
+
+    MpiTracelog t (path.c_str(), pid, atoi(argv[2]), atoi(argv[3]));
     t.Load();
+
+    this->AlignSpawnTimes(&t, pcount, argc, argv);
+
     t.Sync();
-    t.Store();
+    t.Store(dest.c_str());
 
 
     MPI_Finalize();
+}
+
+void MpiWizard::AlignSpawnTimes(MpiTracelog * t, const int p_count, int argc, char * argv[])
+{
+    if (argc < 5) return;
+    if (argv[4][0] != '1') return;
+
+    uint64_t it = t->GetInitTime();
+    uint64_t spawntime = t->GetNextEventTime();
+    uint64_t times[p_count];
+
+    MPI_Gather( &spawntime, 1, MPI_UINT64_T, times, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD );
+
+    uint64_t maxt = times[0];
+    int maxt_pid = 0;
+    for (int i = 1; i < p_count; i++)
+    {
+        if (times[i] > maxt)
+        {
+            maxt = times[i];
+            maxt_pid = i;
+        }
+    }
+
+    MPI_Bcast( &it, 1, MPI_UINT64_T, maxt_pid, MPI_COMM_WORLD);
+    MPI_Bcast( &maxt, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD );
+
+    t->SetInitTime(it);
+    t->SetTimeOffset( maxt - spawntime );
+}
+
+void MpiWizard::AdjustPath(std::string * path)
+{
+    if (path->back() != '/') path->push_back('/');
+}
+
+void MpiWizard::MakeDir(const char * path)
+{
+    struct stat sb;
+    if ( stat(path, &sb) != 0 || !S_ISDIR(sb.st_mode) )
+    {
+        if ( mkdir(path, 0700) != 0 )
+        {
+            std::ostringstream exptn_text;
+            exptn_text << "Cannot create a folder for result! Path: '" << path << "'";
+            throw std::invalid_argument(exptn_text.str());
+        }
+    }
 }

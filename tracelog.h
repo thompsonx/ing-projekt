@@ -10,22 +10,22 @@ namespace tsync
     {
 
         public:
-            Tracelog(char *, int, int, int);
+            Tracelog(const char *, int, int, int);
             ~Tracelog();
             void Load();
             bool IsEndReached();
             int GetPointerPos();
             void Sync();
-            void Store();
+            void Store(const char *);
 
             void SetTimeOffset(uint64_t);
             uint64_t GetTimeOffset();
             uint64_t GetInitTime();
             void SetInitTime(uint64_t);
+            uint64_t GetNextEventTime();
 
         protected:
             int process_id;
-            virtual void MakeDir(const char *);
             virtual uint64_t CollectSentTime(ReceiveEvent *)=0;
             virtual void ForwardSentTime(SendEvent *)=0;
             virtual void ForwardRecvTime(ReceiveEvent *)=0;
@@ -33,7 +33,7 @@ namespace tsync
 
         private:
             std::string filepath;
-            char * path;
+            const char * path;
             std::string filename;
             int min_evnt_dif;
             int min_msg_dly;

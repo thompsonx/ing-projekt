@@ -5,17 +5,12 @@
 #include <inttypes.h>
 #include <stdexcept>
 #include <sstream>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <algorithm>
 #include "tracelog.h"
 
-//TODO: initial offset - srovnat spawn time, prepsat init na jeden spolecny, SPAWN event pricteni casu!
-//TODO: vytvareni cilove slozky pouze na masterovi
-
 using namespace tsync;
 
-Tracelog::Tracelog(char * path, int process_id, int min_evnt_dif, int min_msg_dly)
+Tracelog::Tracelog(const char * path, int process_id, int min_evnt_dif, int min_msg_dly)
 {
     this->path = path;
     this->process_id = process_id;
@@ -30,8 +25,6 @@ Tracelog::Tracelog(char * path, int process_id, int min_evnt_dif, int min_msg_dl
     this->filename.append("-0.ktt");
 
     this->filepath.append(path);
-    if (this->filepath.back() != '/')
-        this->filepath.append("/");
     this->filepath.append(filename);
 }
 
@@ -47,20 +40,6 @@ Tracelog::~Tracelog()
 int Tracelog::GetPointerPos()
 {
     return this->pointer - &this->data[0];
-}
-
-void Tracelog::MakeDir(const char * path)
-{
-    struct stat sb;
-    if ( stat(path, &sb) != 0 || !S_ISDIR(sb.st_mode) )
-    {
-        if ( mkdir(path, 0700) != 0 )
-        {
-            std::ostringstream exptn_text;
-            exptn_text << "Cannot create a folder for result! Path: '" << path << "'";
-            throw std::invalid_argument(exptn_text.str());
-        }
-    }
 }
 
 void Tracelog::Load()
@@ -112,13 +91,10 @@ void Tracelog::Load()
     this->loaded = true;
 }
 
-void Tracelog::Store()
+void Tracelog::Store(const char * dest)
 {
     // Prepare store location
-    std::string store_path(this->path);
-    store_path.append("synced");
-    this->MakeDir(store_path.c_str());
-    store_path.push_back('/');
+    std::string store_path(dest);
     store_path.append(this->filename);
 
     FILE *fp = fopen(store_path.c_str(), "wb");
@@ -174,6 +150,21 @@ void Tracelog::SetInitTime(uint64_t it)
 uint64_t Tracelog::GetInitTime()
 {
     return this->inittime;
+}
+
+uint64_t Tracelog::GetNextEventTime()
+{
+    if (!this->loaded)
+    {
+        throw std::invalid_argument("Tracelog is not loaded! Cannot get the event time.");
+    }
+
+    char * ptr = this->pointer;
+    this->pointer++;
+    uint64_t time = this->ReadUint64();
+    this->pointer = ptr;
+
+    return time;
 }
 
 bool Tracelog::IsEndReached()
@@ -395,7 +386,8 @@ void Tracelog::PEReceive()
 
 void Tracelog::PESpawn()
 {
-    TokenEvent * event = new TokenEvent('S', this->ReadUint64());
+    uint64_t time = this->ReadUint64() + this->time_offset;
+    TokenEvent * event = new TokenEvent('S', time);
     event->SetId(this->ReadInt32());
     // No sync because 'spawn' is an initial event, nothing precedes it
     this->events.push_back(event);
