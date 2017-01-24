@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdexcept>
@@ -87,16 +88,26 @@ void Tracelog::Load()
     }
 
     // Read header
+    std::string tmp;
     char block[2] = { 1, 1 };
     this->pointer = &this->data[0];
     while ( (block[0] != 0) || (block[1] != 0) )
     {
         block[0] = block[1];
         block[1] = *this->pointer;
+        if (!block[1] && !tmp.empty())
+        {
+            this->header_data.push_back(tmp);
+            tmp.clear();
+        }
+        else if (block[1]) tmp.push_back(block[1]);
         this->pointer++;
     }
-    this->header_end = this->pointer - &this->data[0];
     this->pointer++;
+
+    // Parse initial time
+    std::string time = this->header_data.back();
+    this->inittime = strtoull( time.c_str(), nullptr, 10 );
 
     this->loaded = true;
 }
@@ -112,7 +123,12 @@ void Tracelog::Store()
 
     FILE *fp = fopen(store_path.c_str(), "wb");
     // Store tracelog header
-    fwrite(&this->data[0], sizeof(char), this->header_end + 1, fp);
+    for (auto str = this->header_data.begin(); str != this->header_data.end(); str++)
+    {
+        fwrite( (*str).c_str(), sizeof(char), (*str).size() + 1, fp );
+    }
+    char padding[2] = {0, 0};
+    fwrite( padding, sizeof(char), 2, fp );
     // Store events
     for (auto i = this->events.begin(); i != this->events.end(); i++)
     {
@@ -143,6 +159,21 @@ void Tracelog::SetTimeOffset(uint64_t offset)
 uint64_t Tracelog::GetTimeOffset()
 {
     return this->time_offset;
+}
+
+void Tracelog::SetInitTime(uint64_t it)
+{
+    this->inittime = it;
+    std::ostringstream oss;
+    oss << it;
+    std::string time = oss.str();
+    this->header_data.pop_back();
+    this->header_data.push_back(time);
+}
+
+uint64_t Tracelog::GetInitTime()
+{
+    return this->inittime;
 }
 
 bool Tracelog::IsEndReached()

@@ -20,6 +20,8 @@ namespace tsync
 
             void SetTimeOffset(uint64_t);
             uint64_t GetTimeOffset();
+            uint64_t GetInitTime();
+            void SetInitTime(uint64_t);
 
         protected:
             int process_id;
@@ -37,7 +39,8 @@ namespace tsync
             int min_msg_dly;
             std::string data;
             char * pointer;
-            int header_end;
+            std::vector<std::string> header_data;
+            uint64_t inittime;
             uint64_t time_offset;
 
             std::vector<BasicEvent*> events;
