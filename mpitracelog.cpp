@@ -22,8 +22,8 @@ void MpiTracelog::ForwardSentTime(SendEvent * event)
 {
     uint64_t time = event->GetTime();
     // Efficiency of looping all recipients? Current tracelog structure does not allow
-    // better solution. Moreover, it seems that <t_num> is always one thus a collective
-    // msg is separated into a sequence of msgs within tracelog
+    // better solution. Moreover, it seems that recepients are always one thus a collective
+    // msg must be separated into a sequence of msgs within tracelog
     for (auto i = event->Tcbegin(); i != event->Tcend(); i++)
     {
         // Send sent time
@@ -36,29 +36,29 @@ void MpiTracelog::ForwardSentTime(SendEvent * event)
         rreq.event = event;
         MPI_Irecv( &rreq.buf, 1, MPI_UINT64_T, *i, MPI_TSYNC_RECVTIME, MPI_COMM_WORLD, &rreq.req );
         this->requests.push_back(rreq);
+    }
 
-        // Completing received RECVTIME requests
-        auto req = this->requests.begin();
-        int completed = 0;
-        do
+    // Completing received RECVTIME requests
+    auto req = this->requests.begin();
+    int completed = 0;
+    do
+    {
+        RecvReq rq = *req;
+        int flag;
+        MPI_Test( &rq.req, &flag, MPI_STATUS_IGNORE );
+        if (!flag)
         {
-            RecvReq rq = *req;
-            int flag;
-            MPI_Test( &rq.req, &flag, MPI_STATUS_IGNORE );
-            if (!flag)
-            {
-                break;
-            }
-            rq.event->UpdateRecvTime(rq.buf);
-            completed++;
-            req++;
-        } while ( req != this->requests.end() );
-
-        // Delete completed
-        for (int n = 0; n < completed; n++)
-        {
-            this->requests.pop_front();
+            break;
         }
+        rq.event->UpdateRecvTime(rq.buf);
+        completed++;
+        req++;
+    } while ( req != this->requests.end() );
+
+    // Delete completed
+    for (int n = 0; n < completed; n++)
+    {
+        this->requests.pop_front();
     }
 }
 
@@ -129,8 +129,17 @@ void MpiWizard::Run(int argc, char * argv[])
 
 void MpiWizard::AlignSpawnTimes(MpiTracelog * t, const int p_count, int argc, char * argv[])
 {
-    if (argc < 5) return;
-    if (argv[4][0] != '1') return;
+    if (argc < 5)
+    {
+        this->SetCommonInitTime(t);
+        return;
+    }
+
+    if (argv[4][0] != '1')
+    {
+        this->SetCommonInitTime(t);
+        return;
+    }
 
     uint64_t it = t->GetInitTime();
     uint64_t spawntime = t->GetNextEventTime();
@@ -154,6 +163,13 @@ void MpiWizard::AlignSpawnTimes(MpiTracelog * t, const int p_count, int argc, ch
 
     t->SetInitTime(it);
     t->SetTimeOffset( maxt - spawntime );
+}
+
+void MpiWizard::SetCommonInitTime(MpiTracelog * t)
+{
+    uint64_t it = (t->GetPID() == 0) ? t->GetInitTime() : 0;
+    MPI_Bcast( &it, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD);
+    t->SetInitTime(it);
 }
 
 void MpiWizard::AdjustPath(std::string * path)

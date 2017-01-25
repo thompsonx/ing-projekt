@@ -1,6 +1,6 @@
 #include "tracelog.h"
 #include <mpi.h>
-#include <list>
+#include <deque>
 
 #define MPI_TSYNC_SENTTIME 100
 #define MPI_TSYNC_RECVTIME 101
@@ -27,7 +27,7 @@ namespace tsync
             virtual void PrepareBackwardAmortization() override;
 
         private:
-            std::list<RecvReq> requests;
+            std::deque<RecvReq> requests;
     };
 
 
@@ -35,10 +35,13 @@ namespace tsync
     {
 
         public:
-            void AlignSpawnTimes(MpiTracelog *, const int, int, char **);
             void AdjustPath(std::string *);
             void MakeDir(const char *);
             void Run(int, char **);
+
+        private:
+            void SetCommonInitTime(MpiTracelog *);
+            void AlignSpawnTimes(MpiTracelog *, const int, int, char **);
 
     };
 

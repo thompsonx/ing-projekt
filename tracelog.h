@@ -18,6 +18,8 @@ namespace tsync
             void Sync();
             void Store(const char *);
 
+            int GetPID();
+
             void SetTimeOffset(uint64_t);
             uint64_t GetTimeOffset();
             uint64_t GetInitTime();
@@ -44,7 +46,7 @@ namespace tsync
             uint64_t time_offset;
 
             std::vector<BasicEvent*> events;
-            std::list<ReceiveEvent*> violating;
+            std::vector<ReceiveEvent*> violating;
             size_t last_violating_index;
             void Synchronize(BasicEvent *);
             void SynchronizeRecv(ReceiveEvent *);

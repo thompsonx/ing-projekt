@@ -21,7 +21,7 @@ Tracelog::Tracelog(const char * path, int process_id, int min_evnt_dif, int min_
     this->synced = false;
 
     this->filename.append("trace-");
-    this->filename.push_back(char(process_id + 48));
+    this->filename.append(std::to_string(process_id));
     this->filename.append("-0.ktt");
 
     this->filepath.append(path);
@@ -125,6 +125,11 @@ void Tracelog::Sync()
     this->BackwardAmortization();
 
     this->synced = true;
+}
+
+int Tracelog::GetPID()
+{
+    return this->process_id;
 }
 
 void Tracelog::SetTimeOffset(uint64_t offset)
