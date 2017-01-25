@@ -1,5 +1,7 @@
 ing-projekt.cbp
 ing-projekt.layout
 ing-projekt.depend
+mpi_sync
 /bin
 /obj
+*.Makefile.swp

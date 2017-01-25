@@ -5,7 +5,6 @@ using namespace std;
 
 int main(int argc, char * argv[])
 {
-    cout << "Hello world!" << endl;
 
     tsync::MpiWizard mw;
     mw.Run(argc, argv);
