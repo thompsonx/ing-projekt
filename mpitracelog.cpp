@@ -37,7 +37,6 @@ void MpiTracelog::ForwardSentTime(SendEvent * event)
         MPI_Irecv( &rreq.buf, 1, MPI_UINT64_T, *i, MPI_TSYNC_RECVTIME, MPI_COMM_WORLD, &rreq.req );
         this->requests.push_back(rreq);
 
-        // TODO: pravidelnost kontroly? velikosti bufferu MPI?
         // Completing received RECVTIME requests
         auto req = this->requests.begin();
         int completed = 0;
