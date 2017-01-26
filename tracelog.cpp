@@ -316,7 +316,7 @@ void Tracelog::ReadTransitionTraceFunctionData(TransitionEvent * event)
 
 void Tracelog::PESend()
 {
-    SendEvent * event = new SendEvent(this->ReadUint64());
+    SendEvent * event = new SendEvent(this->ReadUint64(), this->min_msg_dly);
     event->SetSize(this->ReadUint64());
     event->SetEdge(this->ReadInt32());
     this->Synchronize(event);
@@ -412,6 +412,9 @@ void Tracelog::Synchronize(BasicEvent * event)
 
     if (prev > time)
     {
+        // Preserve original event spacing (current event and the next)
+        uint64_t offset = prev - time;
+        this->time_offset += offset;
         time = prev;
     }
 

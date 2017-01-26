@@ -54,7 +54,7 @@ namespace tsync
     class SendEvent : public BasicEvent
     {
         public:
-            SendEvent(uint64_t);
+            SendEvent(uint64_t, int);
             void SetSize(uint64_t);
             void SetEdge(int32_t);
             void AddTarget(int32_t);
@@ -72,6 +72,7 @@ namespace tsync
             int32_t tnum;
             std::vector<int32_t> targets;
             uint64_t received_time;
+            int min_msg_dly;
     };
 
     class ReceiveEvent : public TokenEvent

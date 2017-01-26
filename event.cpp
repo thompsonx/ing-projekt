@@ -112,10 +112,11 @@ void TokenEvent::StoreOwnData(FILE*) {}
 
 /* SendEvent Class */
 
-SendEvent::SendEvent(uint64_t time):BasicEvent('M', time)
+SendEvent::SendEvent(uint64_t time, int min_msg_dly):BasicEvent('M', time)
 {
     this->tnum = 0;
-    this->received_time = -1;
+    this->received_time = UINT64_MAX;
+    this->min_msg_dly = min_msg_dly;
 }
 
 void SendEvent::SetSize(uint64_t s)
@@ -149,7 +150,7 @@ uint64_t SendEvent::GetRecvTime()
 
 uint64_t SendEvent::GetMaxOffset()
 {
-    return this->received_time - this->time;
+    return this->received_time - this->time - this->min_msg_dly;
 }
 
 std::vector<int32_t>::const_iterator SendEvent::Tcbegin()
