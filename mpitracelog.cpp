@@ -32,9 +32,9 @@ void MpiTracelog::ForwardSentTime(SendEvent * event)
         MPI_Request_free(&sreq);
 
         // Recieve received time
-        RecvReq rreq;
-        rreq.event = event;
-        MPI_Irecv( &rreq.buf, 1, MPI_UINT64_T, *i, MPI_TSYNC_RECVTIME, MPI_COMM_WORLD, &rreq.req );
+        RecvReq * rreq = new RecvReq;
+        rreq->event = event;
+        MPI_Irecv( &rreq->buf, 1, MPI_UINT64_T, *i, MPI_TSYNC_RECVTIME, MPI_COMM_WORLD, &rreq->req );
         this->requests.push_back(rreq);
     }
 
@@ -43,14 +43,14 @@ void MpiTracelog::ForwardSentTime(SendEvent * event)
     int completed = 0;
     do
     {
-        RecvReq rq = *req;
+        RecvReq * rq = *req;
         int flag;
-        MPI_Test( &rq.req, &flag, MPI_STATUS_IGNORE );
+        MPI_Test( &rq->req, &flag, MPI_STATUS_IGNORE );
         if (!flag)
         {
             break;
         }
-        rq.event->UpdateRecvTime(rq.buf);
+        rq->event->UpdateRecvTime(rq->buf);
         completed++;
         req++;
     } while ( req != this->requests.end() );
@@ -58,7 +58,9 @@ void MpiTracelog::ForwardSentTime(SendEvent * event)
     // Delete completed
     for (int n = 0; n < completed; n++)
     {
+        RecvReq * rq = this->requests.front();
         this->requests.pop_front();
+        delete rq;
     }
 }
 
@@ -74,9 +76,10 @@ void MpiTracelog::PrepareBackwardAmortization()
 {
     for (auto req = this->requests.begin(); req != this->requests.end(); req++)
     {
-        RecvReq rq = *req;
-        MPI_Wait( &rq.req, MPI_STATUS_IGNORE );
-        rq.event->UpdateRecvTime(rq.buf);
+        RecvReq * rq = *req;
+        MPI_Wait( &rq->req, MPI_STATUS_IGNORE );
+        rq->event->UpdateRecvTime(rq->buf);
+        delete rq;
     }
 
     this->requests.clear();

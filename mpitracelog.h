@@ -27,7 +27,7 @@ namespace tsync
             virtual void PrepareBackwardAmortization() override;
 
         private:
-            std::deque<RecvReq> requests;
+            std::deque<RecvReq*> requests;
     };
 
 
