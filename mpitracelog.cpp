@@ -145,27 +145,34 @@ void MpiWizard::AlignSpawnTimes(MpiTracelog * t, const int p_count, int argc, ch
     }
 
     uint64_t it = t->GetInitTime();
+    uint64_t inittimes[p_count];
     uint64_t spawntime = t->GetNextEventTime();
-    uint64_t times[p_count];
+    uint64_t spawntimes[p_count];
 
-    MPI_Gather( &spawntime, 1, MPI_UINT64_T, times, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD );
+    MPI_Gather( &it, 1, MPI_UINT64_T, inittimes, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD );
+    MPI_Gather( &spawntime, 1, MPI_UINT64_T, spawntimes, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD );
 
-    uint64_t maxt = times[0];
-    int maxt_pid = 0;
-    for (int i = 1; i < p_count; i++)
+    uint64_t maxst = 0;
+
+    if (t->GetPID() == 0)
     {
-        if (times[i] > maxt)
+        maxst = spawntimes[0];
+        it = inittimes[0];
+        for (int i = 1; i < p_count; i++)
         {
-            maxt = times[i];
-            maxt_pid = i;
-        }
-    }
+            if (spawntimes[i] > maxst)
+            {
+                maxst = spawntimes[i];
+                it = inittimes[i];
+            }
+        }        
+    }    
 
-    MPI_Bcast( &it, 1, MPI_UINT64_T, maxt_pid, MPI_COMM_WORLD);
-    MPI_Bcast( &maxt, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD );
+    MPI_Bcast( &it, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD);
+    MPI_Bcast( &maxst, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD );
 
     t->SetInitTime(it);
-    t->SetTimeOffset( maxt - spawntime );
+    t->SetTimeOffset( maxst - spawntime );
 }
 
 void MpiWizard::SetCommonInitTime(MpiTracelog * t)
